@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Canvas spel</title>
+
+    <style>
+        body {
+            background-color: rgb(0, 0, 0);
+        }
+
+        canvas#about {
+            background-color: rgb(50, 50, 50);
+            width: 1000px;
+            height: 50px;
+        }
+
+        canvas#stage {
+            background-color: rgb(50, 50, 50);
+            width: 1000px;
+            height: 600px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <canvas id="about" width="1000" height="50"></canvas>
+    <canvas id="stage" width="1000" height="600"></canvas>
+    <p>
+        <button id="start">Starta</button>
+        <button id="paus">Pausa</button>
+    </p>
+
+    <script>
+    
+        const startButton = document.querySelector("#start");
+        const pauseButton = document.querySelector("#paus");
+
+       
+        const canvas = document.querySelector("canvas#stage");
+
+     
+        const ctx = canvas.getContext("2d");
+
+      
+        const canvasAbout = document.querySelector("canvas#about");
+
+       
+        const ctxAbout = canvasAbout.getContext("2d");
+
+
+      
+        var frameId = 0;
+
+      
+        let circles = [];
+
+       
+        let champs = [{
+                name: "Annie",
+                image: "Annie.png",
+                score: getRandomBetween(1, 2)
+            },
+            {
+                name: "Ahri",
+                image: "Ahri.png",
+                score: getRandomBetween(1, 3)
+            },
+            {
+                name: "Amumu",
+                image: "Amumu.png",
+                score: getRandomBetween(1, 1)
+            },
+            {
+                name: "Alistar",
+                image: "Alistar.png",
+                score: getRandomBetween(1, 1)
+            },
+            {
+                name: "Rengar",
+                image: "Rengar.png",
+                score: getRandomBetween(1, 2)
+            }
+
+        ];
+
+       
+        setup();
+
+        
+        let goal = 10;
+
+       
+        printMessage("Goal: " + goal + " points");
+
+        
+        circles.push(spawnCircle());
+
+        
+        let bullets = [];
+
+       
+        let score = 0;
+
+
+       
+        let keyboard = {};
+
+        
+        keyboard.left = false;
+        keyboard.right = false;
+        keyboard.up = false;
+        keyboard.down = false;
+
+
+        document.addEventListener("keydown", getKeyDown);
+        document.addEventListener("keyup", getKeyUp);
+
+        function getKeyDown(event) {
+            if (event.code === "ArrowLeft") {
+                keyboard.left = true;
+            }
+            if (event.code === "ArrowRight") {
+                keyboard.right = true;
+            }
+            if (event.code === "ArrowUp") {
+                keyboard.up = true;
+            }
+            if (event.code === "ArrowDown") {
+                keyboard.down = true;
+            }
+        }
+
+        function getKeyUp(event) {
+            if (event.code === "ArrowLeft") {
+                keyboard.left = false;
+            }
+            if (event.code === "ArrowRight") {
+                keyboard.right = false;
+            }
+            if (event.code === "ArrowUp") {
+                keyboard.up = false;
+            }
+            if (event.code === "ArrowDown") {
+                keyboard.down = false;
+            }
+        }
+
+
+
+        
+
+        startButton.addEventListener("click", function () {
+
+            // starta animering
+            nextFrame();
+        })
+
+        pauseButton.addEventListener("click", function () {
+
+            // stoppa animering
+            cancelAnimationFrame(frameId);
+        })
+
+        canvas.addEventListener("click", function (event) {
+
+            
+            circles[0].fight(event.offsetX, event.offsetY);
+        })
+
+      
+        function nextFrame() {
+
+           
+            frameId = requestAnimationFrame(nextFrame);
+
+           
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            
+            if (circles.length < 20) {
+                if (frameId % 300 === 0) {
+                    circles.push(spawnCircle());
+                }
+            }
+
+          
+
+            movePlayer();
+            detectCircleCollision();
+            detectCircleBulletCollision();
+            renderCircles();
+            renderBullets();
+            printScore();
+        }
+
+        
+        function Circle(x, y, champ) {
+            this.x = x;
+            this.y = y;
+            this.radius = 20;
+            this.color = "yellow";
+            this.vx = getRandomBetween(-2,2);
+            this.vy = getRandomBetween(-2,2);
+            this.champ = champ;
+            this.hp = 5;
+            this.hpTotal = 5;
+            this.draw = function () {
+                ctx.beginPath();
+                ctx.fillStyle = this.color;
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
+                ctx.fill();
+                this.showImage();
+                this.showHealth();
+            }
+            this.showImage = function () {
+                
+                let img = new Image();
+
+                
+                img.src = champ.image;
+
+              
+                ctx.drawImage(img, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+            }
+            this.showHealth = function () {
+
+                
+                ctx.fillStyle = "black";
+                ctx.fillRect(this.x - this.radius, this.y - this.radius, this.radius * 2, 10);
+
+               
+                let health = this.hp / this.hpTotal;
+
+               
+                ctx.fillStyle = "green";
+                ctx.fillRect(this.x - this.radius, this.y - this.radius, this.radius * 2 * health, 10);
+
+
+
+            }
+            this.move = function () {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                
+                if (this.x + this.radius > canvas.width) {
+                    this.vx = -this.vx;
+                    this.x = canvas.width - this.radius;
+                }
+                if (this.x - this.radius < 0) {
+                    this.vx = -this.vx;
+                    this.x = this.radius;
+                }
+                if (this.y + this.radius > canvas.height) {
+                    this.vy = -this.vy;
+                    this.y = canvas.height - this.radius;
+                }
+                if (this.y - this.radius < 0) {
+                    this.vy = -this.vy;
+                    this.y = this.radius;
+                }
+
+                this.draw();
+            }
+
+            this.fight = function (x, y) {
+
+                
+                var angle = getAngleRadians(this.x, this.y, x, y);
+
+
+              
+                var bullet = new Bullet(this.x, this.y, angle);
+                bullets.push(bullet);
+
+               
+                playSound("gun.mp3");
+            }
+
+
+        }
+
+       
+        function renderCircles() {
+            for (var i = 0; i < circles.length; i++) {
+                circles[i].move();
+            }
+        }
+
+       
+        function spawnCircle() {
+
+            let x = getRandomBetween(100, canvas.width - 100);
+            let y = getRandomBetween(100, canvas.height - 100);
+
+            
+            let n = getRandomBetween(0, champs.length - 1);
+
+            let circle = new Circle(x, y, champs[n]);
+
+            return circle;
+        }
+
+       
+        function getRandomBetween(min, max) {
+            let number = Math.random() * (max - min + 1) + min;
+            return Math.floor(number);
+        }
+
+
+
+        
+        function detectCircleCollision() {
+
+            let dx, dy, distance;
+
+            
+            for (var i = 0; i < circles.length; i++) {
+
+                
+                for (var j = 0; j < circles.length; j++) {
+
+                   
+                    if (i === j) {
+                        continue;
+                    }
+
+                   
+                    dx = circles[i].x - circles[j].x;
+                    dy = circles[i].y - circles[j].y;
+                    distance = Math.sqrt(dx * dx + dy * dy);
+
+                    
+                    if (distance < circles[i].radius + circles[j].radius) {
+
+                      
+                        handleCirclesOverlap(circles[i], circles[j], distance);
+                        handleCirclesCollision(circles[i], circles[j]);
+                    }
+
+                   
+                    if (distance > 200 && distance < 300) {
+
+                       
+                        if (frameId % 60 === 0) {
+
+                            
+                            let x = circles[j].x + getRandomBetween(-20,20);
+                            let y = circles[j].y + getRandomBetween(-20,20);
+
+                            circles[i].fight(x, y);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        
+        function detectCircleBulletCollision() {
+
+            let dx, dy, distance;
+
+            
+            for (var i = circles.length - 1; i >= 0; --i) {
+
+                
+                if (i === 0) {
+                    continue;
+                }
+
+                
+                for (var j = bullets.length - 1; j >= 0; --j) {
+
+                    
+                    console.log("circels:", circles.length, i, "bullets:", bullets.length, j);
+                    dx = circles[i].x - bullets[j].x;
+                    dy = circles[i].y - bullets[j].y;
+                    distance = Math.sqrt(dx * dx + dy * dy);
+
+                    
+                    if (distance < circles[i].radius + bullets[j].radius) {
+
+                        
+                        if (circles[i].hp > 1) {
+                            circles[i].hp -= 1;
+                        } else {
+
+                            
+                            console.log(circles[i]);
+                            let newScore = circles[i].champ.score;
+                            score += newScore;
+
+
+                            
+                            checkGameStatus(goal);
+
+                            
+                            circles.splice(i, 1);
+
+                        }
+
+                        
+                        bullets.splice(j, 1);
+                    }
+                }
+            }
+        }
+
+
+
+        function handleCirclesOverlap(a, b, distance) {
+
+            var overlap = a.radius + b.radius - distance;
+
+            
+            if (a.x >= b.x && a.y >= b.y) {
+
+                if (a.radius < b.radius) {
+                    a.x += overlap;
+                    a.y += overlap;
+                } else {
+                    b.x -= overlap;
+                    b.y -= overlap;
+                }
+            } else if (a.x >= b.x && a.y <= b.y) {
+                if (a.radius < b.radius) {
+                    a.x += overlap;
+                    a.y -= overlap;
+                } else {
+                    b.x -= overlap;
+                    b.y += overlap;
+                }
+            } else if (a.x <= b.x && a.y <= b.y) {
+                if (a.radius < b.radius) {
+                    a.x -= overlap;
+                    a.y -= overlap;
+                } else {
+                    b.x += overlap;
+                    b.y += overlap;
+                }
+            } else if (a.x <= b.x && a.y >= b.y) {
+                if (a.radius < b.radius) {
+                    a.x -= overlap;
+                    a.y += overlap;
+                } else {
+                    b.x += overlap;
+                    b.y -= overlap;
+                }
+            }
+        }
+
+        function handleCirclesCollision(a, b) {
+
+            
+            var theta1 = Math.atan2(a.vy, a.vx);
+            var theta2 = Math.atan2(b.vy, b.vx);
+            var phi = Math.atan2(b.y - a.y, b.x - a.x);
+
+            
+            var m1 = a.radius;
+            var m2 = b.radius;
+
+            
+            var v1 = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+            var v2 = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+
+            
+            a.vx = (v1 * Math.cos(theta1 - phi) * (m1 - m2) + 2 * m2 * v2 * Math.cos(theta2 - phi)) / (m1 + m2) * Math
+                .cos(phi) + v1 * Math.sin(theta1 - phi) * Math.cos(phi + Math.PI / 2);
+            a.vy = (v1 * Math.cos(theta1 - phi) * (m1 - m2) + 2 * m2 * v2 * Math.cos(theta2 - phi)) / (m1 + m2) * Math
+                .sin(phi) + v1 * Math.sin(theta1 - phi) * Math.sin(phi + Math.PI / 2);
+            b.vx = (v2 * Math.cos(theta2 - phi) * (m2 - m1) + 2 * m1 * v1 * Math.cos(theta1 - phi)) / (m1 + m2) * Math
+                .cos(phi) + v2 * Math.sin(theta2 - phi) * Math.cos(phi + Math.PI / 2);
+            b.vy = (v2 * Math.cos(theta2 - phi) * (m2 - m1) + 2 * m1 * v1 * Math.cos(theta1 - phi)) / (m1 + m2) * Math
+                .sin(phi) + v2 * Math.sin(theta2 - phi) * Math.sin(phi + Math.PI / 2);
+        }
+
+        function movePlayer() {
+            circles[0].color = "green";
+            if (keyboard.left) {
+                circles[0].x -= 5;
+                circles[0].vx = -1;
+            }
+            if (keyboard.right) {
+                circles[0].x += 5;
+                circles[0].vx = 1;
+            }
+            if (keyboard.up) {
+                circles[0].y -= 3;
+                circles[0].vy = -1;
+            }
+            if (keyboard.down) {
+                circles[0].y += 3;
+                circles[0].vy = 1;
+            }
+        }
+
+        
+        function getAngleRadians(p1x, p1y, p2x, p2y) {
+            return Math.atan2(p2y - p1y, p2x - p1x);
+        };
+
+
+        function Bullet(x, y, angle) {
+            this.x = x;
+            this.y = y;
+            this.radius = 5;
+            this.speed = 10;
+            this.angle = angle;
+            this.color = "white";
+            this.draw = function () {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+            this.move = function () {
+
+                
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+
+                
+                var x = this.x + this.vx;
+                var y = this.y + this.vy;
+
+                this.draw();
+
+                
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        
+        function renderBullets() {
+
+            for (var i = bullets.length - 1; i >= 0; i--) {
+
+                
+                if (
+                    bullets[i].x > canvas.width || bullets[i].x < 0 ||
+                    bullets[i].y > canvas.height || bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                } else {
+
+                    
+                    bullets[i].move();
+                }
+            }
+        }
+
+
+        function printScore() {
+            ctx.font = "50px Verdana";
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.fillText(score, canvas.width / 2, canvas.height / 4, canvas.width);
+        }
+
+        function printMessage(text) {
+            ctx.font = "70px Verdana";
+            ctx.fillStyle = "yellow";
+            ctx.textAlign = "center";
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width);
+        }
+
+        function setup() {
+
+            
+            ctxAbout.fillStyle = "white";
+            ctxAbout.font = "20px Arial";
+            ctxAbout.fillText("Prove Your skills...", 50, 25);
+
+            
+            var counter = 0;
+
+            
+            var x = 300;
+
+            
+            champs.forEach(champ => {
+
+                
+                let img = new Image();
+
+               
+                img.src = champ.image;
+
+                
+                img.onload = function () {
+
+                    
+                    ctxAbout.drawImage(img, x, 0, 50, 50);
+
+                    
+                    ctxAbout.fillText(champ.score, x + 60, 25);
+
+                    
+                    x += 150;
+                }
+            })
+
+        }
+
+        
+        function checkGameStatus(goal) {
+
+            
+            if (score >= goal) {
+
+                
+                cancelAnimationFrame(frameId);
+
+                printMessage("Victory!")
+            }
+
+            return;
+        }
+
+        
+        function playSound(file) {
+
+            
+            let audio = document.querySelector("#" + file);
+
+            
+
+            if (audio == null) {
+
+                
+                audio = document.createElement("audio");
+
+                
+                audio.src = file;
+
+                
+                audio.id = file;
+            }
+
+            
+            audio.currentTime = 0;
+
+            
+            audio.play();
+        }
+    </script>
+
+</body>
+
+</html>
